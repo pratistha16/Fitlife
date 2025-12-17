@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 
 @Database(
     entities = [WorkoutRoutine::class, User::class],
-    version = 7,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

@@ -1,3 +1,5 @@
+import org.gradle.api.JavaVersion
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -40,7 +42,7 @@ android {
         compose = true
     }
 
-    // Kotlin 1.9.24 + Compose compiler
+    // Kotlin 1.9.24 compatible Compose compiler extension
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
@@ -48,66 +50,53 @@ android {
 
 dependencies {
 
-    // --------------------
     // CORE
-    // --------------------
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
 
-    // --------------------
     // COMPOSE (BOM)
-    // --------------------
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(platform("androidx.compose:compose-bom:2024.09.03"))
-    implementation("androidx.compose.ui:ui-text")
-
-
-    // ✅ REQUIRED for KeyboardOptions / KeyboardType (and text input stuff)
     implementation(libs.androidx.compose.ui.text)
 
-    // ✅ Icons
+    // ICONS
     implementation(libs.androidx.compose.icons.core)
     implementation(libs.androidx.compose.icons.extended)
 
-    // ✅ Lifecycle helpers for Compose
+    // LIFECYCLE COMPOSE
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
-    // --------------------
     // NAVIGATION
-    // --------------------
     implementation(libs.androidx.navigation.compose)
 
-    // --------------------
     // ROOM
-    // --------------------
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)
 
-    // --------------------
     // GSON
-    // --------------------
     implementation(libs.gson)
 
-    // --------------------
+    // COIL (Image Loading)
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // EXOPLAYER (Video Playback)
+    implementation("androidx.media3:media3-exoplayer:1.2.0")
+    implementation("androidx.media3:media3-ui:1.2.0")
+
     // TEST
-    // --------------------
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-
     androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
-    // --------------------
     // DEBUG
-    // --------------------
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

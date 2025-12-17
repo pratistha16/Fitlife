@@ -4,12 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class RoutineViewModel(
@@ -23,18 +18,17 @@ class RoutineViewModel(
         currentUserId
             .filterNotNull()
             .flatMapLatest { uid -> repository.getRoutinesForUser(uid) }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5_000),
-                emptyList()
-            )
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun setUser(userId: Int) {
-        currentUserId.value = userId
+    private val _selectedChecklistItems = MutableStateFlow<List<String>>(emptyList())
+    val selectedChecklistItems: StateFlow<List<String>> = _selectedChecklistItems.asStateFlow()
+
+    fun setSelectedChecklistItems(items: List<String>) {
+        _selectedChecklistItems.value = items
     }
 
-    fun clearUser() {
-        currentUserId.value = null
+    fun setUser(userId: Int?) {
+        currentUserId.value = userId
     }
 
     fun addRoutine(routine: WorkoutRoutine) {

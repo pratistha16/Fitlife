@@ -2,41 +2,55 @@ package com.example.fitlife
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import kotlinx.coroutines.Dispatchers
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
-class AuthViewModel(application: Application) : AndroidViewModel(application) {
+class AuthViewModel(
+    application: Application,
+    private val repository: UserRepository
+) : AndroidViewModel(application) {
 
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser
 
-    private val userDao = AppDatabase.getDatabase(application).userDao()
+    private val _loginError = MutableStateFlow<String?>(null)
+    val loginError: StateFlow<String?> = _loginError
 
-    suspend fun register(name: String, email: String, password: String): Result<Unit> {
-        return withContext(Dispatchers.IO) {
-            val existing = userDao.getByEmail(email)
-            if (existing != null) {
-                return@withContext Result.failure(Exception("Email already registered."))
+    fun login(email: String, password: String) {
+        viewModelScope.launch {
+            val user = repository.login(email, password)
+            if (user != null) {
+                _currentUser.value = user
+                _loginError.value = null
+            } else {
+                _loginError.value = "Invalid email or password"
             }
-
-            userDao.insert(User(name = name, email = email, password = password))
-            Result.success(Unit)
         }
     }
 
-    suspend fun loginWithEmail(email: String, password: String): Boolean {
-        return withContext(Dispatchers.IO) {
-            val user = userDao.login(email, password)
-            if (user != null) {
-                _currentUser.value = user
-                true
-            } else false
+    fun clearLoginError() {
+        _loginError.value = null
+    }
+
+    suspend fun register(name: String, email: String, password: String): Result<Unit> {
+        return runCatching {
+            repository.insert(User(name = name, email = email, password = password))
+            Unit // Indicate success
         }
     }
 
     fun logout() {
         _currentUser.value = null
+    }
+
+    fun updateProfile(weight: Float?, height: Float?, age: Int?, gender: String?) {
+        val user = _currentUser.value ?: return
+        viewModelScope.launch {
+            repository.updateProfile(user.id, weight, height, age, gender)
+            // Update local state
+            _currentUser.value = user.copy(weight = weight, height = height, age = age, gender = gender)
+        }
     }
 }

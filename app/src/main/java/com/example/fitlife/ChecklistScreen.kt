@@ -50,44 +50,29 @@ fun ChecklistScreen(
         }
     }
 
-    // Selected lines for sending
-    val selected: List<String> = remember(checklistItems, checkedStates) {
-        checklistItems.filterIndexed { index, _ ->
-            checkedStates.getOrNull(index) == true
-        }
+    // Selected lines for sending - derive directly without remember to track checkbox changes
+    val selected: List<String> = checklistItems.filterIndexed { index, _ ->
+        checkedStates.getOrNull(index) == true
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Workout Checklist") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                actions = {
+                    TextButton(
+                        onClick = {
+                            val message = selected.joinToString("\n").ifEmpty { " " }
+                            navController.navigate(Screen.Delegate.route(message))
+                        },
+                        enabled = selected.isNotEmpty()
+                    ) {
+                        Text("Share")
                     }
                 }
             )
         },
-        bottomBar = {
-            BottomAppBar {
-                Button(
-                    onClick = {
-                        val msg = if (selected.isEmpty()) {
-                            "No items selected."
-                        } else {
-                            selected.joinToString("\n")
-                        }
-                        navController.navigate(Screen.Delegate.route(msg))
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    enabled = checklistItems.isNotEmpty()
-                ) {
-                    Text("Send Selected via SMS")
-                }
-            }
-        }
+        bottomBar = { BottomNavBar(navController) }
     ) { paddingValues ->
 
         LazyColumn(
