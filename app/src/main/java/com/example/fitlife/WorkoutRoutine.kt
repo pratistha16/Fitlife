@@ -12,5 +12,9 @@ data class WorkoutRoutine(
     val instructions: String? = null,
     val isDone: Boolean = false,
     val photoUri: String? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    // ✅ GEO TAG (per routine)
+    val locationName: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )

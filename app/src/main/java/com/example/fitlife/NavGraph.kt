@@ -8,6 +8,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 
 sealed class Screen(val route: String) {
+    object Splash : Screen("splash")
     object Login : Screen("login")
     object Register : Screen("register")
     object Home : Screen("home")
@@ -45,8 +46,15 @@ fun NavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = if (currentUser == null) Screen.Login.route else Screen.Home.route
+        startDestination = Screen.Splash.route
     ) {
+
+        composable(Screen.Splash.route) {
+            SplashScreen(
+                navController = navController,
+                isLoggedIn = currentUser != null
+            )
+        }
 
         composable(Screen.Login.route) {
             LoginScreen(navController, authViewModel)
@@ -57,7 +65,7 @@ fun NavGraph(
         }
 
         composable(Screen.Home.route) {
-            HomeScreen(navController, authViewModel)
+            HomeScreen(navController, authViewModel, routineViewModel)
         }
 
         composable(Screen.Manage.route) {
@@ -73,7 +81,7 @@ fun NavGraph(
         }
 
         composable(Screen.Profile.route) {
-            ProfileScreen(navController, authViewModel)
+            ProfileScreen(navController, authViewModel, routineViewModel)
         }
 
         composable(Screen.Nutrition.route) {
@@ -81,7 +89,7 @@ fun NavGraph(
         }
 
         composable(Screen.WeeklyPlan.route) {
-            WeeklyPlanScreen(navController, routineViewModel)
+            WeeklyPlanScreen(navController, routineViewModel, authViewModel)
         }
 
         composable(

@@ -27,17 +27,26 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.*
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeeklyPlanScreen(
     navController: NavController,
-    routineViewModel: RoutineViewModel
+    routineViewModel: RoutineViewModel,
+    authViewModel: AuthViewModel
 ) {
     val routines by routineViewModel.routines.collectAsState(initial = emptyList())
+    val currentUser by authViewModel.currentUser.collectAsState()
     var selectedDay by remember { mutableStateOf(LocalDate.now().dayOfWeek.value) }
     
-    // Weekly plan state (in real app, this would be persisted)
+    val context = LocalContext.current
+    val db = remember { AppDatabase.getDatabase(context) }
+    val weeklyPlanDao = remember { db.weeklyPlanDao() }
+    val scope = rememberCoroutineScope()
+    
+    // Weekly plan state - persisted to database
     var weeklyPlan by remember {
         mutableStateOf(
             mapOf(
@@ -52,6 +61,31 @@ fun WeeklyPlanScreen(
         )
     }
     
+    // Load weekly plan from database
+    LaunchedEffect(currentUser?.id) {
+        val userId = currentUser?.id ?: return@LaunchedEffect
+        val plans = weeklyPlanDao.getAllForUser(userId)
+        val loaded = mutableMapOf<Int, List<Int>>()
+        for (d in 1..7) {
+            loaded[d] = plans.find { it.odayOfWeek == d }?.routineIds ?: emptyList()
+        }
+        weeklyPlan = loaded
+    }
+    
+    // Helper to persist changes
+    fun persistDay(dayOfWeek: Int, routineIds: List<Int>) {
+        val userId = currentUser?.id ?: return
+        scope.launch {
+            weeklyPlanDao.upsert(
+                WeeklyPlanEntity(
+                    odayOfWeek = dayOfWeek,
+                    odayUserId = userId,
+                    routineIds = routineIds
+                )
+            )
+        }
+    }
+    
     var showAddRoutineDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -64,7 +98,8 @@ fun WeeklyPlanScreen(
                     }
                 }
             )
-        }
+        },
+        bottomBar = { BottomNavBar(navController) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -288,9 +323,11 @@ fun WeeklyPlanScreen(
 
                                         IconButton(
                                             onClick = {
+                                                val newList = weeklyPlan[selectedDay]?.filter { it != routine.id } ?: emptyList()
                                                 weeklyPlan = weeklyPlan.toMutableMap().apply {
-                                                    this[selectedDay] = this[selectedDay]?.filter { it != routine.id } ?: emptyList()
+                                                    this[selectedDay] = newList
                                                 }
+                                                persistDay(selectedDay, newList)
                                             }
                                         ) {
                                             Icon(
@@ -391,9 +428,11 @@ fun WeeklyPlanScreen(
                                     },
                                     modifier = Modifier.clickable {
                                         if (!isAdded) {
+                                            val newList = (weeklyPlan[selectedDay] ?: emptyList()) + routine.id
                                             weeklyPlan = weeklyPlan.toMutableMap().apply {
-                                                this[selectedDay] = (this[selectedDay] ?: emptyList()) + routine.id
+                                                this[selectedDay] = newList
                                             }
+                                            persistDay(selectedDay, newList)
                                         }
                                         showAddRoutineDialog = false
                                     }

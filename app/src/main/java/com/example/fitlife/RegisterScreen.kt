@@ -1,8 +1,10 @@
 package com.example.fitlife
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,6 +33,12 @@ fun RegisterScreen(
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var age by remember { mutableStateOf("") }
+    var gender by remember { mutableStateOf("Prefer not to say") }
+    var height by remember { mutableStateOf("") }
+    var weight by remember { mutableStateOf("") }
+    var fitnessGoal by remember { mutableStateOf("Stay Fit") }
+    var experienceLevel by remember { mutableStateOf("Beginner") }
 
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -38,15 +46,24 @@ fun RegisterScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
+        // Decorative background shape
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.background
+                        )
+                    ),
+                    shape = RoundedCornerShape(bottomStart = 60.dp, bottomEnd = 60.dp)
+                )
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -57,26 +74,34 @@ fun RegisterScreen(
             Spacer(Modifier.height(40.dp))
 
             // Logo/Icon
-            Icon(
-                Icons.Default.FitnessCenter,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.FitnessCenter,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
 
             Spacer(Modifier.height(12.dp))
 
             Text(
                 "Join FitLife",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.onPrimary
             )
 
             Text(
-                "Create your account to get started",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                "Start your transformation today",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
             )
 
             Spacer(Modifier.height(32.dp))
@@ -84,16 +109,25 @@ fun RegisterScreen(
             // Register Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Text(
+                        "Create Account",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it; error = null },
@@ -109,7 +143,7 @@ fun RegisterScreen(
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it; error = null },
-                        label = { Text("Email") },
+                        label = { Text("Email Address") },
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -150,8 +184,94 @@ fun RegisterScreen(
                         singleLine = true
                     )
 
+                    Spacer(Modifier.height(24.dp))
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(Modifier.height(16.dp))
+
+                    Text(
+                        "Your Fitness Profile",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Age, Height, Weight Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = age,
+                            onValueChange = { age = it.filter { ch -> ch.isDigit() }; error = null },
+                            label = { Text("Age") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = height,
+                            onValueChange = { height = it.filter { ch -> ch.isDigit() || ch == '.' }; error = null },
+                            label = { Text("Ht (cm)") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = weight,
+                            onValueChange = { weight = it.filter { ch -> ch.isDigit() || ch == '.' }; error = null },
+                            label = { Text("Wt (kg)") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Gender dropdown
+                    Text(
+                        "Gender",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    GenderSelector(
+                        selected = gender,
+                        onSelectedChange = { gender = it }
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Fitness goal
+                    Text(
+                        "Fitness Goal",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    ChoiceChipsRow(
+                        options = listOf("Lose Weight", "Gain Muscle", "Stay Fit", "Rehab"),
+                        selected = fitnessGoal,
+                        onSelectedChange = { fitnessGoal = it }
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Experience level
+                    Text(
+                        "Experience Level",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    ChoiceChipsRow(
+                        options = listOf("Beginner", "Intermediate", "Advanced"),
+                        selected = experienceLevel,
+                        onSelectedChange = { experienceLevel = it }
+                    )
+
                     error?.let { err ->
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(16.dp))
                         Text(
                             err,
                             color = MaterialTheme.colorScheme.error,
@@ -160,7 +280,7 @@ fun RegisterScreen(
                         )
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(32.dp))
 
                     Button(
                         onClick = {
@@ -178,15 +298,25 @@ fun RegisterScreen(
                                     return@launch
                                 }
 
+                                val ageInt = age.toIntOrNull()
+                                val heightFloat = height.toFloatOrNull()
+                                val weightFloat = weight.toFloatOrNull()
+
                                 val result = authViewModel.register(
                                     name = name.trim(),
                                     email = email.trim(),
-                                    password = password
+                                    password = password,
+                                    age = ageInt,
+                                    gender = gender.takeIf { it != "Prefer not to say" },
+                                    heightCm = heightFloat,
+                                    weightKg = weightFloat,
+                                    fitnessGoal = fitnessGoal,
+                                    experienceLevel = experienceLevel
                                 )
 
                                 if (result.isSuccess) {
-                                    navController.navigate(Screen.Login.route) {
-                                        popUpTo(Screen.Register.route) { inclusive = true }
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(Screen.Login.route) { inclusive = true }
                                     }
                                 } else {
                                     error = result.exceptionOrNull()?.message ?: "Registration failed"
@@ -196,10 +326,16 @@ fun RegisterScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        enabled = name.isNotBlank() && email.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank()
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
                     ) {
-                        Text("Create Account", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Create Account",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -212,14 +348,68 @@ fun RegisterScreen(
             ) {
                 Text(
                     "Already have an account?",
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 TextButton(onClick = { navController.popBackStack() }) {
-                    Text("Login", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Log In",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
 
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun GenderSelector(
+    selected: String,
+    onSelectedChange: (String) -> Unit
+) {
+    val options = listOf("Male", "Female", "Other", "Prefer not to say")
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+    ) {
+        options.forEach { option ->
+            FilterChip(
+                selected = option == selected,
+                onClick = { onSelectedChange(option) },
+                label = { Text(option) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChoiceChipsRow(
+    options: List<String>,
+    selected: String,
+    onSelectedChange: (String) -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+    ) {
+        options.forEach { option ->
+            FilterChip(
+                selected = option == selected,
+                onClick = { onSelectedChange(option) },
+                label = { Text(option) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
         }
     }
 }

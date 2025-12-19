@@ -1,10 +1,21 @@
 package com.example.fitlife
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.Location
+import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import com.google.android.gms.location.LocationServices
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +56,49 @@ fun WorkoutSessionScreen(
     var remainingSeconds by remember { mutableStateOf(0) }
     var isRunning by remember { mutableStateOf(false) }
     var isCompleted by remember { mutableStateOf(false) }
+
+    // Location logic
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    var locationSaved by remember { mutableStateOf(false) }
+    var locationText by remember { mutableStateOf<String?>(null) }
+    var savedLat by remember { mutableStateOf<Double?>(null) }
+    var savedLng by remember { mutableStateOf<Double?>(null) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                      permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            try {
+                if (ActivityCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+                        location?.let {
+                            viewModel.updateRoutineLocation(routineId, "Workout Location", it.latitude, it.longitude)
+                            locationSaved = true
+                            savedLat = it.latitude
+                            savedLng = it.longitude
+                            locationText = "Lat: ${String.format("%.4f", it.latitude)}, Lng: ${String.format("%.4f", it.longitude)}"
+                            Toast.makeText(context, "Location tagged!", Toast.LENGTH_SHORT).show()
+                        } ?: run {
+                            Toast.makeText(context, "Current location not found", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        } else {
+            Toast.makeText(context, "Permission denied", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val currentExercise = routine?.exercises?.getOrNull(currentIndex)
     val totalExercises = routine?.exercises?.size ?: 0
@@ -195,6 +249,63 @@ fun WorkoutSessionScreen(
                 }
 
                 Spacer(Modifier.height(48.dp))
+
+                if (!locationSaved) {
+                    Button(
+                        onClick = {
+                            permissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.LocationOn, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Tag Location", style = MaterialTheme.typography.titleMedium)
+                    }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                            .clickable {
+                                if (savedLat != null && savedLng != null) {
+                                    val uri = Uri.parse("geo:${savedLat},${savedLng}?q=${savedLat},${savedLng}(Workout Location)")
+                                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                                    intent.setPackage("com.google.android.apps.maps")
+                                    if (intent.resolveActivity(context.packageManager) != null) {
+                                        context.startActivity(intent)
+                                    } else {
+                                        // Fallback to browser or generic map
+                                        val browserIntent = Intent(Intent.ACTION_VIEW, uri)
+                                        context.startActivity(browserIntent)
+                                    }
+                                }
+                            }
+                            .padding(16.dp)
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            locationText ?: "Location Tagged",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
 
                 Button(
                     onClick = {

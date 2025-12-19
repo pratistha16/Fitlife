@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import android.content.Intent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +38,7 @@ fun CreateRoutineScreen(
     authViewModel: AuthViewModel
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
+    val context = LocalContext.current
     val userId: Int? = currentUser?.id
 
     // Routine info
@@ -62,22 +64,40 @@ fun CreateRoutineScreen(
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var showAddExerciseDialog by remember { mutableStateOf(false) }
 
-    // Image pickers
+    // Image / video pickers (persistable URIs)
     val routineImagePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
         routineImageUri = uri?.toString()
     }
 
     val exerciseImagePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
         exerciseImageUri = uri?.toString()
     }
 
     val exerciseVideoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
         exerciseVideoUri = uri?.toString()
     }
 
@@ -105,7 +125,8 @@ fun CreateRoutineScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
-        }
+        },
+        bottomBar = { BottomNavBar(navController) }
     ) { paddingValues ->
 
         if (userId == null) {
@@ -172,7 +193,7 @@ fun CreateRoutineScreen(
                                     )
                                 )
                         )
-                        .clickable { routineImagePicker.launch("image/*") },
+                        .clickable { routineImagePicker.launch(arrayOf("image/*")) },
                     contentAlignment = Alignment.Center
                 ) {
                     if (routineImageUri != null) {
@@ -189,7 +210,7 @@ fun CreateRoutineScreen(
                                 .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            FilledTonalIconButton(onClick = { routineImagePicker.launch("image/*") }) {
+                            FilledTonalIconButton(onClick = { routineImagePicker.launch(arrayOf("image/*")) }) {
                                 Icon(Icons.Default.Edit, contentDescription = "Change")
                             }
                         }
@@ -394,7 +415,7 @@ fun CreateRoutineScreen(
                                         .height(100.dp)
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        .clickable { exerciseImagePicker.launch("image/*") },
+                                        .clickable { exerciseImagePicker.launch(arrayOf("image/*")) },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (exerciseImageUri != null) {
@@ -419,7 +440,7 @@ fun CreateRoutineScreen(
                                         .height(100.dp)
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        .clickable { exerciseVideoPicker.launch("video/*") },
+                                        .clickable { exerciseVideoPicker.launch(arrayOf("video/*")) },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (exerciseVideoUri != null) {

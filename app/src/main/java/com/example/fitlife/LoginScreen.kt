@@ -3,6 +3,7 @@ package com.example.fitlife
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -42,15 +43,24 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
+        // Decorative background shape
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.background
+                        )
+                    ),
+                    shape = RoundedCornerShape(bottomStart = 60.dp, bottomEnd = 60.dp)
+                )
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -60,26 +70,34 @@ fun LoginScreen(
             Spacer(Modifier.height(60.dp))
 
             // Logo/Icon
-            Icon(
-                Icons.Default.FitnessCenter,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.FitnessCenter,
+                    contentDescription = null,
+                    modifier = Modifier.size(60.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
 
             Text(
                 "FitLife",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                style = MaterialTheme.typography.displayMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontWeight = FontWeight.ExtraBold
             )
 
             Text(
-                "Your fitness journey starts here",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                "Your journey begins here",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
             )
 
             Spacer(Modifier.height(48.dp))
@@ -91,105 +109,102 @@ fun LoginScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         "Welcome Back",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-
+                    
                     Spacer(Modifier.height(24.dp))
 
                     OutlinedTextField(
                         value = email,
-                        onValueChange = {
-                            email = it
-                            authViewModel.clearLoginError()
-                        },
-                        label = { Text("Email") },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        onValueChange = { email = it },
+                        label = { Text("Email Address") },
+                        leadingIcon = { Icon(Icons.Default.Email, null) },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        shape = RoundedCornerShape(12.dp)
                     )
 
                     Spacer(Modifier.height(16.dp))
 
                     OutlinedTextField(
                         value = password,
-                        onValueChange = {
-                            password = it
-                            authViewModel.clearLoginError()
-                        },
+                        onValueChange = { password = it },
                         label = { Text("Password") },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Default.Lock, null) },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
+                            val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = if (passwordVisible) "Hide" else "Show"
-                                )
+                                Icon(image, null)
                             }
                         },
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        shape = RoundedCornerShape(12.dp)
                     )
-
-                    loginError?.let { error ->
-                        Spacer(Modifier.height(12.dp))
+                    
+                    if (loginError != null) {
+                        Spacer(Modifier.height(16.dp))
                         Text(
-                            error,
+                            text = loginError ?: "",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center
                         )
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(32.dp))
 
                     Button(
-                        onClick = {
-                            val e = email.trim()
-                            val p = password
-                            if (e.isNotBlank() && p.isNotBlank()) {
-                                authViewModel.clearLoginError()
-                                authViewModel.login(e, p)
-                            }
-                        },
+                        onClick = { authViewModel.login(email, password) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        enabled = email.isNotBlank() && password.isNotBlank()
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
                     ) {
-                        Text("Login", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Login",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
 
             Spacer(Modifier.weight(1f))
 
-            // Register link
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     "Don't have an account?",
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 TextButton(onClick = { navController.navigate(Screen.Register.route) }) {
-                    Text("Sign Up", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Sign Up",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
-
-            Spacer(Modifier.height(24.dp))
+            
+            Spacer(Modifier.height(16.dp))
         }
     }
 }

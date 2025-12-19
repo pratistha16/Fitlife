@@ -1,6 +1,7 @@
 package com.example.fitlife
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -16,114 +17,153 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     navController: NavController,
-    authViewModel: AuthViewModel
+    authViewModel: AuthViewModel,
+    routineViewModel: RoutineViewModel
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
+
+    val context = LocalContext.current
+    val db = remember { AppDatabase.getDatabase(context) }
+    val nutritionDao = remember { db.nutritionDao() }
+    val routines by routineViewModel.routines.collectAsState(initial = emptyList())
+
+    var totalWorkouts by remember { mutableStateOf(currentUser?.totalWorkoutsCompleted ?: 0) }
+    var totalCalories by remember { mutableStateOf(currentUser?.totalCaloriesBurned ?: 0) }
+    var currentStreakState by remember { mutableStateOf(currentUser?.currentStreak ?: 0) }
+
+    LaunchedEffect(currentUser?.id, routines) {
+        val userId = currentUser?.id ?: return@LaunchedEffect
+
+        // Workouts: count completed routines
+        totalWorkouts = routines.count { it.isDone }
+
+        // Nutrition: sum all calories across all saved days
+        val entries = nutritionDao.getAllForUser(userId)
+        totalCalories = entries.sumOf { entry ->
+            entry.meals.sumOf { it.calories }
+        }
+
+        // Streak: consecutive days with any nutrition activity
+        val activityDates = entries
+            .filter { it.meals.isNotEmpty() || it.waterGlasses > 0 }
+            .mapNotNull { runCatching { LocalDate.parse(it.date) }.getOrNull() }
+            .toSet()
+
+        var streak = 0
+        var day = LocalDate.now()
+        while (activityDates.contains(day)) {
+            streak++
+            day = day.minusDays(1)
+        }
+        currentStreakState = streak
+    }
 
     var showEditDialog by remember { mutableStateOf(false) }
     var showGoalsDialog by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Profile") },
-                actions = {
-                    IconButton(onClick = { showEditDialog = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit")
-                    }
-                }
-            )
-        },
-        bottomBar = { BottomNavBar(navController) }
+        bottomBar = { BottomNavBar(navController) },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // Profile Header
+            // Profile Header with Curve
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(320.dp)
                 ) {
+                    // Background
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(280.dp)
                             .background(
                                 Brush.verticalGradient(
                                     listOf(
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                                        MaterialTheme.colorScheme.primaryContainer
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.background
                                     )
-                                )
+                                ),
+                                shape = RoundedCornerShape(bottomStart = 60.dp, bottomEnd = 60.dp)
                             )
-                            .padding(24.dp)
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.fillMaxWidth()
+                        Text(
+                            "My Profile",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        Spacer(Modifier.height(32.dp))
+
+                        // Avatar
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface),
+                            contentAlignment = Alignment.Center
                         ) {
-                            // Avatar
-                            Box(
-                                modifier = Modifier
-                                    .size(100.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    currentUser?.name?.firstOrNull()?.uppercase() ?: "U",
-                                    style = MaterialTheme.typography.displayMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-
-                            Spacer(Modifier.height(16.dp))
-
                             Text(
-                                currentUser?.name ?: "User",
-                                style = MaterialTheme.typography.headlineSmall,
+                                currentUser?.name?.firstOrNull()?.uppercase() ?: "U",
+                                style = MaterialTheme.typography.displayMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.primary
                             )
-
-                            Text(
-                                currentUser?.email ?: "",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            )
-
-                            currentUser?.fitnessGoal?.let { goal ->
-                                Spacer(Modifier.height(8.dp))
-                                AssistChip(
-                                    onClick = {},
-                                    label = { Text(goal) },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.Flag,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                )
-                            }
                         }
+                        
+                        Spacer(Modifier.height(16.dp))
+                        
+                        Text(
+                            currentUser?.name ?: "User",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        
+                        Text(
+                            currentUser?.email ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    // Edit Button (Top Right)
+                    IconButton(
+                        onClick = { showEditDialog = true },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit Profile",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
                     }
                 }
             }
@@ -131,53 +171,57 @@ fun ProfileScreen(
             // Stats Cards
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     ProfileStatCard(
                         title = "Workouts",
-                        value = "${currentUser?.totalWorkoutsCompleted ?: 0}",
+                        value = "$totalWorkouts",
                         icon = Icons.Default.FitnessCenter,
-                        color = Color(0xFF6C5CE7),
-                        modifier = Modifier.weight(1f)
-                    )
-                    ProfileStatCard(
-                        title = "Calories",
-                        value = "${currentUser?.totalCaloriesBurned ?: 0}",
-                        icon = Icons.Default.LocalFireDepartment,
-                        color = Color(0xFFFF6B6B),
+                        color = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.weight(1f)
                     )
                     ProfileStatCard(
                         title = "Streak",
-                        value = "${currentUser?.currentStreak ?: 0}",
+                        value = "$currentStreakState",
                         icon = Icons.Default.Whatshot,
-                        color = Color(0xFFFFBE76),
+                        color = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
+
+            item { Spacer(Modifier.height(24.dp)) }
 
             // Body Stats
             item {
                 Text(
                     "Body Stats",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                 )
             }
 
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp)
+                        modifier = Modifier.padding(24.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             BodyStatItem(
                                 label = "Weight",
@@ -194,9 +238,9 @@ fun ProfileScreen(
                         }
 
                         if (currentUser?.weight != null && currentUser?.height != null) {
-                            Spacer(Modifier.height(16.dp))
-                            Divider()
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(24.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Spacer(Modifier.height(24.dp))
 
                             val bmi = currentUser!!.weight!! / ((currentUser!!.height!! / 100) * (currentUser!!.height!! / 100))
                             val bmiCategory = when {
@@ -206,10 +250,10 @@ fun ProfileScreen(
                                 else -> "Obese"
                             }
                             val bmiColor = when {
-                                bmi < 18.5 -> Color(0xFF74B9FF)
-                                bmi < 25 -> Color(0xFF00B894)
-                                bmi < 30 -> Color(0xFFFFBE76)
-                                else -> Color(0xFFFF7675)
+                                bmi < 18.5 -> Color(0xFF60A5FA)
+                                bmi < 25 -> Color(0xFF34D399)
+                                bmi < 30 -> Color(0xFFFBBF24)
+                                else -> Color(0xFFF87171)
                             }
 
                             Row(
@@ -219,9 +263,9 @@ fun ProfileScreen(
                             ) {
                                 Column {
                                     Text(
-                                        "BMI",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                        "BMI Score",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
                                         String.format("%.1f", bmi),
@@ -229,128 +273,116 @@ fun ProfileScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
-                                AssistChip(
-                                    onClick = {},
-                                    label = { Text(bmiCategory) },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = bmiColor.copy(alpha = 0.15f),
-                                        labelColor = bmiColor
+                                Surface(
+                                    color = bmiColor.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = bmiCategory,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = bmiColor.copy(alpha = 1f) // Darker shade for text usually, but simple here
                                     )
-                                )
+                                }
                             }
                         }
                     }
                 }
             }
+            
+            item { Spacer(Modifier.height(24.dp)) }
 
             // Goals Section
             item {
-                Text(
-                    "Daily Goals",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Daily Goals",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = { showGoalsDialog = true }) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit Goals",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
 
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        modifier = Modifier.padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
                         GoalItem(
                             icon = Icons.Default.LocalFireDepartment,
                             title = "Calories",
                             value = "${currentUser?.targetCalories ?: 2000} kcal",
-                            color = Color(0xFFFF6B6B)
+                            color = MaterialTheme.colorScheme.secondary
                         )
                         GoalItem(
                             icon = Icons.Default.WaterDrop,
                             title = "Water",
-                            value = "${currentUser?.targetWater ?: 8} glasses",
-                            color = Color(0xFF74B9FF)
+                            value = "${currentUser?.targetWater ?: 8} cups",
+                            color = Color(0xFF3B82F6)
                         )
                         GoalItem(
                             icon = Icons.Default.DirectionsWalk,
                             title = "Steps",
                             value = "${currentUser?.targetSteps ?: 10000}",
-                            color = Color(0xFF00B894)
+                            color = MaterialTheme.colorScheme.tertiary
                         )
-
-                        FilledTonalButton(
-                            onClick = { showGoalsDialog = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Edit, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Edit Goals")
-                        }
-                    }
-                }
-            }
-
-            // Activity Level
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Speed,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    "Activity Level",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                                Text(
-                                    currentUser?.activityLevel ?: "Not set",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
                     }
                 }
             }
 
             // Logout
             item {
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
+                Spacer(Modifier.height(32.dp))
+                Button(
                     onClick = {
                         authViewModel.logout()
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    ),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.Default.Logout, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Logout")
+                    Text(
+                        "Log Out",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
-
-            item { Spacer(Modifier.height(16.dp)) }
         }
 
         // Edit Profile Dialog
@@ -358,7 +390,7 @@ fun ProfileScreen(
             EditProfileDialog(
                 currentUser = currentUser,
                 onDismiss = { showEditDialog = false },
-                onSave = { weight, height, age, gender, activityLevel, fitnessGoal ->
+                onSave = { weight, height, age, gender ->
                     authViewModel.updateProfile(weight, height, age, gender)
                     showEditDialog = false
                 }
@@ -372,6 +404,7 @@ fun ProfileScreen(
                 onDismiss = { showGoalsDialog = false },
                 onSave = { calories, water, steps ->
                     // In real app, save to ViewModel
+                    // For now assuming the viewmodel updates or we just dismiss
                     showGoalsDialog = false
                 }
             )
@@ -388,21 +421,25 @@ private fun ProfileStatCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.height(110.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.15f)
-        )
+            containerColor = color.copy(alpha = 0.1f)
+        ),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
                 icon,
                 contentDescription = null,
                 tint = color,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(28.dp)
             )
             Spacer(Modifier.height(8.dp))
             Text(
@@ -413,8 +450,8 @@ private fun ProfileStatCard(
             )
             Text(
                 title,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                style = MaterialTheme.typography.labelSmall,
+                color = color.copy(alpha = 0.8f)
             )
         }
     }
@@ -429,14 +466,16 @@ private fun BodyStatItem(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            value,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
             label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -449,145 +488,86 @@ private fun GoalItem(
     color: Color
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
         }
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Medium
-        )
+        Spacer(Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditProfileDialog(
+fun EditProfileDialog(
     currentUser: User?,
     onDismiss: () -> Unit,
-    onSave: (Float?, Float?, Int?, String?, String?, String?) -> Unit
+    onSave: (Float?, Float?, Int?, String?) -> Unit
 ) {
     var weight by remember { mutableStateOf(currentUser?.weight?.toString() ?: "") }
     var height by remember { mutableStateOf(currentUser?.height?.toString() ?: "") }
     var age by remember { mutableStateOf(currentUser?.age?.toString() ?: "") }
-    var selectedGender by remember { mutableStateOf(currentUser?.gender ?: "") }
-    var selectedActivity by remember { mutableStateOf(currentUser?.activityLevel ?: "") }
-    var selectedGoal by remember { mutableStateOf(currentUser?.fitnessGoal ?: "") }
+    var gender by remember { mutableStateOf(currentUser?.gender ?: "Prefer not to say") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Profile") },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedTextField(
                     value = weight,
                     onValueChange = { weight = it },
                     label = { Text("Weight (kg)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = height,
                     onValueChange = { height = it },
                     label = { Text("Height (cm)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = age,
-                    onValueChange = { age = it.filter(Char::isDigit) },
+                    onValueChange = { age = it },
                     label = { Text("Age") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-
-                // Gender dropdown
-                var genderExpanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(
-                    expanded = genderExpanded,
-                    onExpandedChange = { genderExpanded = !genderExpanded }
-                ) {
-                    OutlinedTextField(
-                        value = selectedGender,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Gender") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = genderExpanded,
-                        onDismissRequest = { genderExpanded = false }
-                    ) {
-                        listOf("Male", "Female", "Other").forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option) },
-                                onClick = {
-                                    selectedGender = option
-                                    genderExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Fitness Goal dropdown
-                var goalExpanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(
-                    expanded = goalExpanded,
-                    onExpandedChange = { goalExpanded = !goalExpanded }
-                ) {
-                    OutlinedTextField(
-                        value = selectedGoal,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Fitness Goal") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = goalExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = goalExpanded,
-                        onDismissRequest = { goalExpanded = false }
-                    ) {
-                        listOf("Lose Weight", "Build Muscle", "Stay Fit", "Gain Weight").forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option) },
-                                onClick = {
-                                    selectedGoal = option
-                                    goalExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
+                // Simplified gender input for dialog
+                OutlinedTextField(
+                    value = gender,
+                    onValueChange = { gender = it },
+                    label = { Text("Gender") },
+                    singleLine = true
+                )
             }
         },
         confirmButton = {
@@ -597,9 +577,7 @@ private fun EditProfileDialog(
                         weight.toFloatOrNull(),
                         height.toFloatOrNull(),
                         age.toIntOrNull(),
-                        selectedGender.ifEmpty { null },
-                        selectedActivity.ifEmpty { null },
-                        selectedGoal.ifEmpty { null }
+                        gender
                     )
                 }
             ) {
@@ -615,7 +593,7 @@ private fun EditProfileDialog(
 }
 
 @Composable
-private fun EditGoalsDialog(
+fun EditGoalsDialog(
     currentUser: User?,
     onDismiss: () -> Unit,
     onSave: (Int, Int, Int) -> Unit
@@ -626,33 +604,30 @@ private fun EditGoalsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Daily Goals") },
+        title = { Text("Edit Goals") },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedTextField(
                     value = calories,
-                    onValueChange = { calories = it.filter(Char::isDigit) },
-                    label = { Text("Target Calories") },
+                    onValueChange = { calories = it },
+                    label = { Text("Daily Calories") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = water,
-                    onValueChange = { water = it.filter(Char::isDigit) },
-                    label = { Text("Water (glasses)") },
+                    onValueChange = { water = it },
+                    label = { Text("Daily Water (cups)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = steps,
-                    onValueChange = { steps = it.filter(Char::isDigit) },
-                    label = { Text("Target Steps") },
+                    onValueChange = { steps = it },
+                    label = { Text("Daily Steps") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
             }

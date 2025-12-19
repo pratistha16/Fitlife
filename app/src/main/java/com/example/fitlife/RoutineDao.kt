@@ -29,4 +29,12 @@ interface RoutineDao {
     // ✅ DONE FLAG (per user)
     @Query("UPDATE routines SET isDone = :done WHERE id = :id AND ownerUserId = :userId")
     suspend fun setDone(id: Int, userId: Int, done: Boolean): Int
+
+    @Query("""
+    UPDATE routines 
+    SET locationName = :locationName, latitude = :lat, longitude = :lng
+    WHERE id = :id AND ownerUserId = :userId
+""")
+    suspend fun updateLocation(id: Int, userId: Int, locationName: String?, lat: Double?, lng: Double?): Int
+
 }

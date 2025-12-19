@@ -4,6 +4,7 @@ import androidx.room.TypeConverter
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
+
 class Converters {
 
     private val gson = Gson()
@@ -33,4 +34,31 @@ class Converters {
     fun toExerciseItemList(list: List<ExerciseItem>?): String {
         return gson.toJson(list ?: emptyList<ExerciseItem>())
     }
+
+    // ---------- List<NutritionItem> ----------
+    @TypeConverter
+    fun fromNutritionItemList(value: String?): List<NutritionItem> {
+        if (value.isNullOrBlank()) return emptyList()
+        val type = object : TypeToken<List<NutritionItem>>() {}.type
+        return gson.fromJson(value, type)
+    }
+
+    @TypeConverter
+    fun toNutritionItemList(list: List<NutritionItem>?): String {
+        return gson.toJson(list ?: emptyList<NutritionItem>())
+    }
+
+    // ---------- List<Int> ----------
+    @TypeConverter
+    fun fromIntList(value: String?): List<Int> {
+        if (value.isNullOrBlank()) return emptyList()
+        val type = object : TypeToken<List<Int>>() {}.type
+        return gson.fromJson(value, type)
+    }
+
+    @TypeConverter
+    fun toIntList(list: List<Int>?): String {
+        return gson.toJson(list ?: emptyList<Int>())
+    }
+    
 }

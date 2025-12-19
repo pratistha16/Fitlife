@@ -34,9 +34,32 @@ class AuthViewModel(
         _loginError.value = null
     }
 
-    suspend fun register(name: String, email: String, password: String): Result<Unit> {
+    suspend fun register(
+        name: String,
+        email: String,
+        password: String,
+        age: Int?,
+        gender: String?,
+        heightCm: Float?,
+        weightKg: Float?,
+        fitnessGoal: String?,
+        experienceLevel: String?
+    ): Result<Unit> {
         return runCatching {
-            repository.insert(User(name = name, email = email, password = password))
+            repository.insert(
+                User(
+                    name = name,
+                    email = email,
+                    password = password,
+                    age = age,
+                    gender = gender,
+                    height = heightCm,
+                    weight = weightKg,
+                    fitnessGoal = fitnessGoal,
+                    activityLevel = experienceLevel,
+                    experienceLevel = experienceLevel
+                )
+            )
             Unit // Indicate success
         }
     }

@@ -82,6 +82,9 @@ dependencies {
     // GSON
     implementation(libs.gson)
 
+    // Location
+    implementation(libs.play.services.location)
+
     // COIL (Image Loading)
     implementation("io.coil-kt:coil-compose:2.5.0")
 

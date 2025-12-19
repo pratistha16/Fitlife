@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.fitlife.ui.theme.FitlifeTheme
 
 @Composable
 fun FitLifeApp(application: Application) {
@@ -41,7 +42,7 @@ fun FitLifeApp(application: Application) {
     val routineViewModel: RoutineViewModel = viewModel(factory = routineVmFactory)
     val authViewModel: AuthViewModel = viewModel(factory = authVmFactory)
 
-    MaterialTheme {
+    FitlifeTheme(darkTheme = true, dynamicColor = false) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background

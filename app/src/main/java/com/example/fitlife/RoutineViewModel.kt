@@ -50,4 +50,11 @@ class RoutineViewModel(
             repository.setDone(id, uid, done)
         }
     }
+    fun updateRoutineLocation(id: Int, locationName: String?, lat: Double?, lng: Double?) {
+        val uid = currentUserId.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateLocation(id, uid, locationName, lat, lng)
+        }
+    }
+
 }

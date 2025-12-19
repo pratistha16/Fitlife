@@ -15,4 +15,7 @@ class RoutineRepository(private val dao: RoutineDao) {
 
     suspend fun setDone(id: Int, userId: Int, done: Boolean): Int =
         dao.setDone(id, userId, done)
+    suspend fun updateLocation(id: Int, userId: Int, name: String?, lat: Double?, lng: Double?) =
+        dao.updateLocation(id, userId, name, lat, lng)
+
 }

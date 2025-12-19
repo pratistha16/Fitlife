@@ -1,6 +1,8 @@
 package com.example.fitlife
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -46,6 +49,16 @@ fun ManageScreen(
         if (uid == null) emptyList() else routines.filter { it.ownerUserId == uid }
     }
 
+    var selectedFilter by remember { mutableStateOf("All") }
+
+    val filteredRoutines = remember(visibleRoutines, selectedFilter) {
+        when (selectedFilter) {
+            "Completed" -> visibleRoutines.filter { it.isDone }
+            "Pending" -> visibleRoutines.filter { !it.isDone }
+            else -> visibleRoutines
+        }
+    }
+
     val completedCount = visibleRoutines.count { it.isDone }
     val pendingCount = visibleRoutines.size - completedCount
 
@@ -69,6 +82,7 @@ fun ManageScreen(
                 }
             )
         },
+        bottomBar = { BottomNavBar(navController) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { navController.navigate(Screen.CreateRoutine.route) },
@@ -95,7 +109,7 @@ fun ManageScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(bottom = 90.dp, top = 16.dp, start = 16.dp, end = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Stats Header
@@ -127,8 +141,6 @@ fun ManageScreen(
 
             // Filter chips
             item {
-                var selectedFilter by remember { mutableStateOf("All") }
-                
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -145,7 +157,7 @@ fun ManageScreen(
                 }
             }
 
-            if (visibleRoutines.isEmpty()) {
+            if (filteredRoutines.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -190,19 +202,74 @@ fun ManageScreen(
                     }
                 }
             } else {
-                items(visibleRoutines) { routine ->
-                    RoutineCard(
-                        routine = routine,
-                        onClick = {
-                            navController.navigate(Screen.RoutineExercises.route(routine.id))
+                items(filteredRoutines, key = { it.id }) { routine ->
+                    val dismissState = rememberDismissState(
+                        confirmValueChange = {
+                            if (it == DismissValue.DismissedToStart) {
+                                viewModel.deleteRoutine(routine.id)
+                                true
+                            } else if (it == DismissValue.DismissedToEnd) {
+                                viewModel.setDone(routine.id, !routine.isDone)
+                                false // Don't dismiss, just toggle
+                            } else {
+                                false
+                            }
+                        }
+                    )
+
+                    SwipeToDismiss(
+                        state = dismissState,
+                        modifier = Modifier.animateContentSize(),
+                        directions = setOf(DismissDirection.EndToStart, DismissDirection.StartToEnd),
+                        background = {
+                            val direction = dismissState.dismissDirection ?: return@SwipeToDismiss
+                            val color by animateColorAsState(
+                                when (dismissState.targetValue) {
+                                    DismissValue.Default -> MaterialTheme.colorScheme.surface
+                                    DismissValue.DismissedToEnd -> Color(0xFF00B894) // Green for Complete
+                                    DismissValue.DismissedToStart -> MaterialTheme.colorScheme.error // Red for Delete
+                                }
+                            )
+                            val alignment = when (direction) {
+                                DismissDirection.StartToEnd -> Alignment.CenterStart
+                                DismissDirection.EndToStart -> Alignment.CenterEnd
+                            }
+                            val icon = when (direction) {
+                                DismissDirection.StartToEnd -> if (routine.isDone) Icons.Default.Undo else Icons.Default.Check
+                                DismissDirection.EndToStart -> Icons.Default.Delete
+                            }
+                            val scale by animateFloatAsState(
+                                if (dismissState.targetValue == DismissValue.Default) 0.75f else 1f
+                            )
+
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(color, RoundedCornerShape(20.dp))
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = alignment
+                            ) {
+                                Icon(
+                                    icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.scale(scale),
+                                    tint = Color.White
+                                )
+                            }
                         },
-                        onDelete = { viewModel.deleteRoutine(routine.id) },
-                        onToggleDone = { viewModel.setDone(routine.id, !routine.isDone) }
+                        dismissContent = {
+                            RoutineCard(
+                                routine = routine,
+                                onClick = {
+                                    navController.navigate(Screen.RoutineExercises.route(routine.id))
+                                },
+                                onDelete = { viewModel.deleteRoutine(routine.id) },
+                                onToggleDone = { viewModel.setDone(routine.id, !routine.isDone) }
+                            )
+                        }
                     )
                 }
             }
-
-            item { Spacer(Modifier.height(80.dp)) }
         }
     }
 }
@@ -216,27 +283,29 @@ private fun StatChip(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.15f)
-        )
+            containerColor = color.copy(alpha = 0.1f)
+        ),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(vertical = 16.dp, horizontal = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
                 color = color
             )
             Text(
                 label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                fontWeight = FontWeight.Medium
             )
         }
     }
@@ -260,7 +329,6 @@ private fun RoutineCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

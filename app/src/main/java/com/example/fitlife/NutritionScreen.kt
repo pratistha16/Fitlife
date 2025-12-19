@@ -3,7 +3,18 @@ package com.example.fitlife
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -11,8 +22,33 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,6 +57,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,11 +68,51 @@ fun NutritionScreen(
     authViewModel: AuthViewModel
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
-    
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val today = remember { LocalDate.now().toString() }
+
+    val db = remember { AppDatabase.getDatabase(context) }
+    val nutritionDao = remember { db.nutritionDao() }
+
     var meals by remember { mutableStateOf(listOf<NutritionItem>()) }
     var waterCount by remember { mutableStateOf(0) }
+    var isLoaded by remember { mutableStateOf(false) }
     var showAddMealDialog by remember { mutableStateOf(false) }
     var selectedMealType by remember { mutableStateOf(MealType.BREAKFAST) }
+
+    // Load existing nutrition for today
+    LaunchedEffect(currentUser?.id, today) {
+        val userId = currentUser?.id
+        if (userId != null) {
+            val existing = nutritionDao.getForUserAndDate(userId, today)
+            if (existing != null) {
+                meals = existing.meals
+                waterCount = existing.waterGlasses
+            } else {
+                meals = emptyList()
+                waterCount = 0
+            }
+        } else {
+            meals = emptyList()
+            waterCount = 0
+        }
+        isLoaded = true
+    }
+
+    fun persistNutrition(updatedMeals: List<NutritionItem>, updatedWater: Int) {
+        val userId = currentUser?.id ?: return
+        scope.launch {
+            val entry = DailyNutritionEntity(
+                userId = userId,
+                date = today,
+                meals = updatedMeals,
+                waterGlasses = updatedWater
+            )
+            nutritionDao.upsert(entry)
+        }
+    }
 
     val totalCalories = meals.sumOf { it.calories }
     val totalProtein = meals.sumOf { it.protein.toDouble() }.toFloat()
@@ -52,6 +131,7 @@ fun NutritionScreen(
                 }
             )
         },
+        bottomBar = { BottomNavBar(navController) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddMealDialog = true },
@@ -61,6 +141,17 @@ fun NutritionScreen(
             }
         }
     ) { padding ->
+        if (!isLoaded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -196,13 +287,21 @@ fun NutritionScreen(
                             }
                             Row {
                                 FilledTonalIconButton(
-                                    onClick = { if (waterCount > 0) waterCount-- }
+                                    onClick = {
+                                        if (waterCount > 0) {
+                                            waterCount--
+                                            persistNutrition(meals, waterCount)
+                                        }
+                                    }
                                 ) {
                                     Icon(Icons.Default.Remove, contentDescription = "Remove")
                                 }
                                 Spacer(Modifier.width(8.dp))
                                 FilledIconButton(
-                                    onClick = { waterCount++ }
+                                    onClick = {
+                                        waterCount++
+                                        persistNutrition(meals, waterCount)
+                                    }
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = "Add")
                                 }
@@ -245,7 +344,9 @@ fun NutritionScreen(
                             showAddMealDialog = true
                         },
                         onRemoveMeal = { meal ->
-                            meals = meals - meal
+                            val updated = meals - meal
+                            meals = updated
+                            persistNutrition(updated, waterCount)
                         }
                     )
                 }
@@ -260,7 +361,9 @@ fun NutritionScreen(
                 mealType = selectedMealType,
                 onDismiss = { showAddMealDialog = false },
                 onAdd = { meal ->
-                    meals = meals + meal
+                    val updated = meals + meal
+                    meals = updated
+                    persistNutrition(updated, waterCount)
                     showAddMealDialog = false
                 }
             )

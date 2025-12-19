@@ -7,8 +7,8 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [WorkoutRoutine::class, User::class],
-    version = 10,
+    entities = [WorkoutRoutine::class, User::class, DailyNutritionEntity::class, WeeklyPlanEntity::class],
+    version = 13,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -16,6 +16,8 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun routineDao(): RoutineDao
     abstract fun userDao(): UserDao
+    abstract fun nutritionDao(): NutritionDao
+    abstract fun weeklyPlanDao(): WeeklyPlanDao
 
     companion object {
         @Volatile

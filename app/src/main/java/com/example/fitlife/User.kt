@@ -20,8 +20,9 @@ data class User(
     val targetCalories: Int = 2000,
     val targetWater: Int = 8,            // glasses per day
     val targetSteps: Int = 10000,
-    val fitnessGoal: String? = null,     // "Lose Weight", "Build Muscle", "Stay Fit"
-    val activityLevel: String? = null,   // "Sedentary", "Light", "Moderate", "Active", "Very Active"
+    val fitnessGoal: String? = null,     // "Lose Weight", "Gain Muscle", "Stay Fit", "Rehab / Recovery"
+    val activityLevel: String? = null,   // "Beginner", "Intermediate", "Advanced" (treated as experience)
+    val experienceLevel: String? = null, // explicit field for clarity
     val totalWorkoutsCompleted: Int = 0,
     val totalCaloriesBurned: Int = 0,
     val currentStreak: Int = 0
